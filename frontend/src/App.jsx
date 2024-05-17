@@ -1,122 +1,72 @@
-import React, { Component } from "react";
+import React, { useEffect, useState, createContext } from "react";
+import { Container, Row, Col, Nav, NavItem, NavLink, TabContent, TabPane, Card, CardTitle, CardText, Button } from "reactstrap";
+import TaskModal from "./components/Modal";
+import TodoApp from "./components/TodoApp";
+import axios from "axios";
 
-const todoItems = [
-  {
-    id: 1,
-    title: "Go to Market",
-    description: "Buy ingredients to prepare dinner",
-    completed: true,
-  },
-  {
-    id: 2,
-    title: "Study",
-    description: "Read Algebra and History textbook for the upcoming test",
-    completed: false,
-  },
-  {
-    id: 3,
-    title: "Sammy's books",
-    description: "Go to library to return Sammy's books",
-    completed: true,
-  },
-  {
-    id: 4,
-    title: "Article",
-    description: "Write article on how to use Django with React",
-    completed: false,
-  },
-];
+export const TodoContext = createContext()
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      viewCompleted: false,
-      todoList: todoItems,
-    };
+function App() {
+  const [modalState, setModalState] = useState(
+    {
+      modalHeader: 'Add Task',
+      item: {title: '', description: '', completed: false},
+      isOpen: false,
+    }
+  )
+  const [tasks,setTasks] = useState([])
+
+  const save = (item) => {
+    toggle()
+    if (item.id) {
+      axios
+        .put(`http://127.0.0.1:8000/api/todos/${item.id}/`, item)
+        .then((res) => refreshList());
+      return;
+    }
+    axios
+      .post("http://127.0.0.1:8000/api/todos/", item)
+      .then((res) => refreshList());
   }
 
-  displayCompleted = (status) => {
-    return this.setState({ viewCompleted: !!status });
-  };
-
-  renderTabList = () => {
-    return (
-      <div className="nav nav-tabs">
-        <span
-          className={this.state.viewCompleted ? "nav-link active" : "nav-link"}
-          onClick={() => this.displayCompleted(true)}
-        >
-          Complete
-        </span>
-        <span
-          className={this.state.viewCompleted ? "nav-link" : "nav-link active"}
-          onClick={() => this.displayCompleted(false)}
-        >
-          Incomplete
-        </span>
-      </div>
-    );
-  };
-
-  renderItems = () => {
-    const { viewCompleted } = this.state;
-    const newItems = this.state.todoList.filter(
-      (item) => item.completed == viewCompleted
-    );
-
-    return newItems.map((item) => (
-      <li
-        key={item.id}
-        className="list-group-item d-flex justify-content-between align-items-center"
-      >
-        <span
-          className={`todo-title mr-2 ${this.state.viewCompleted ? "completed-todo" : ""
-            }`}
-          title={item.description}
-        >
-          {item.title}
-        </span>
-        <span>
-          <button
-            className="btn btn-secondary mr-2"
-          >
-            Edit
-          </button>
-          <button
-            className="btn btn-danger"
-          >
-            Delete
-          </button>
-        </span>
-      </li>
-    ));
-  };
-
-  render() {
-    return (
-      <main className="container">
-        <h1 className="text-uppercase text-center my-4">Todo app</h1>
-        <div className="row">
-          <div className="col-md-6 col-sm-10 mx-auto p-0">
-            <div className="card p-3">
-              <div className="mb-4">
-                <button
-                  className="btn btn-primary"
-                >
-                  Add task
-                </button>
-              </div>
-              {this.renderTabList()}
-              <ul className="list-group list-group-flush border-top-0">
-                {this.renderItems()}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
+  const refreshList = () => {
+    axios
+      .get("http://127.0.0.1:8000/api/todos/")
+      .then((res) => setTasks(res.data))
+      .catch((err) => console.log(err));
   }
+
+  const toggle = () => {
+    setModalState({...modalState, isOpen: false})
+  }
+  const addTask = () => {
+    setModalState({...modalState, item: {title: '', description: '', completed: false}, isOpen: true})
+  }
+
+  const deleteTask = (item) => {
+    axios
+      .delete(`http://127.0.0.1:8000/api/todos/${item.id}/`)
+      .then(res => refreshList());
+  }
+
+  useEffect(()=>{
+    refreshList();
+  }, [])
+
+  return <Container fluid className="h-100 bg-light">
+    <Row className="align-items-start justify-content-center h-100 pt-5">
+      <Col xs='6' className="border bg-white p-5">
+        <Container className="d-flex align-items-center justify-content-between">
+          <h1>To-Do App</h1>
+          <Button color="success" onClick={addTask}>Add Task</Button>
+        </Container>        
+        <TodoContext.Provider value={{deleteTask: deleteTask, setModalState: setModalState, tasks: tasks}}>
+          <TodoApp />
+        </TodoContext.Provider>
+      </Col>
+    </Row>
+    {modalState['isOpen'] && <TaskModal {...modalState} onSave={save} toggle={toggle}/>}
+  </Container>
 }
 
 export default App;
